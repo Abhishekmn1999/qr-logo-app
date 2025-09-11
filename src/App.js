@@ -224,48 +224,122 @@ function App() {
           backdropFilter: "blur(20px)",
           borderRadius: 24,
           boxShadow: "0 20px 40px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.2)",
-          width: 420,
-          maxWidth: "95vw",
-          padding: 40,
+          width: "90vw",
+          maxWidth: "1200px",
+          minHeight: "auto",
+          padding: "30px",
           textAlign: 'center',
           animation: "fadeIn 0.6s ease-out",
-          border: "1px solid rgba(255,255,255,0.2)"
+          border: "1px solid rgba(255,255,255,0.2)",
+          display: "flex",
+          flexDirection: window.innerWidth > 768 ? "row" : "column",
+          gap: "30px",
+          alignItems: "flex-start"
         }}>
-          <h1 style={{
-            color: qrColor,
-            marginBottom: 8,
-            fontWeight: 700,
-            fontSize: 32,
-            letterSpacing: "-0.02em",
-            textAlign: "center",
-            position: "relative",
-            overflow: "hidden"
+          {/* Left side - QR Preview */}
+          <div style={{
+            flex: window.innerWidth > 768 ? "1" : "none",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "400px"
           }}>
-            <div style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundImage: `
-                radial-gradient(circle at 20% 20%, ${qrColor}15 2px, transparent 2px),
-                radial-gradient(circle at 80% 20%, ${qrColor}15 2px, transparent 2px),
-                radial-gradient(circle at 20% 80%, ${qrColor}15 2px, transparent 2px),
-                radial-gradient(circle at 80% 80%, ${qrColor}15 2px, transparent 2px),
-                radial-gradient(circle at 50% 50%, ${qrColor}10 1px, transparent 1px)
-              `,
-              backgroundSize: "20px 20px, 20px 20px, 20px 20px, 20px 20px, 10px 10px",
-              animation: "qrPattern 3s ease-in-out infinite",
-              zIndex: -1
-            }} />
-            QR Generator
-          </h1>
-          <p style={{
-            color: "#64748b",
-            fontSize: 16,
-            marginBottom: 32,
-            fontWeight: 400
-          }}>Create beautiful QR codes with custom logos</p>
+            <div
+              ref={canvasRef}
+              style={{
+                opacity: text ? 1 : 0.3,
+                transition: "all 0.5s ease",
+                transform: text ? "scale(1)" : "scale(0.95)"
+              }}
+            >
+              {text && (
+                <div style={{
+                  position: 'relative',
+                  display: 'inline-block',
+                  background: "rgba(255,255,255,0.9)",
+                  border: `${BORDER_WIDTH}px solid ${qrColor}`,
+                  borderRadius: BORDER_RADIUS,
+                  boxShadow: `0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px ${qrColor}20`,
+                  padding: PADDING,
+                  width: QR_SIZE,
+                  height: QR_SIZE,
+                  animation: text ? "pulse 2s infinite" : "none"
+                }}>
+                  <QRCodeCanvas
+                    value={text}
+                    size={QR_SIZE}
+                    level="H"
+                    includeMargin={false}
+                    renderAs="canvas"
+                    bgColor="#fff"
+                    fgColor={qrColor}
+                    style={{ borderRadius: BORDER_RADIUS - 8, boxSizing: 'border-box', display: 'block' }}
+                  />
+                  {logoDataUrl &&
+                    <img
+                      src={logoDataUrl}
+                      alt="central logo"
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        width: LOGO_SIZE,
+                        height: LOGO_SIZE,
+                        transform: 'translate(-50%, -50%)',
+                        borderRadius: '50%',
+                        background: '#fff',
+                        border: '4px solid #fff',
+                        boxShadow: '0 2px 9px #b9ceeb44',
+                        pointerEvents: 'none'
+                      }}
+                    />
+                  }
+                </div>
+              )}
+              {!text && (
+                <div style={{
+                  width: QR_SIZE + PADDING * 2,
+                  height: QR_SIZE + PADDING * 2,
+                  border: "2px dashed #cbd5e1",
+                  borderRadius: BORDER_RADIUS,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#94a3b8",
+                  fontSize: 16,
+                  fontWeight: 500
+                }}>
+                  QR Preview
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right side - Controls */}
+          <div style={{
+            flex: window.innerWidth > 768 ? "1" : "none",
+            display: "flex",
+            flexDirection: "column",
+            width: "100%"
+          }}>
+            <h1 style={{
+              color: "#1e293b",
+              marginBottom: 8,
+              fontWeight: 700,
+              fontSize: window.innerWidth > 768 ? 32 : 28,
+              letterSpacing: "-0.02em",
+              textAlign: "center"
+            }}>
+              QR Generator
+            </h1>
+            <p style={{
+              color: "#64748b",
+              fontSize: 16,
+              marginBottom: 32,
+              fontWeight: 400,
+              textAlign: "center"
+            }}>Create beautiful QR codes with custom logos</p>
           <input
             type="text"
             value={text}
@@ -385,62 +459,7 @@ function App() {
             }}>PNG, JPG, SVG</span>
           </div>
           </div>
-          {/* QR code preview */}
-          <div
-            ref={canvasRef}
-            style={{
-              minHeight: QR_SIZE + PADDING * 2,
-              marginBottom: 28,
-              opacity: text ? 1 : 0.3,
-              transition: "all 0.5s ease",
-              transform: text ? "scale(1)" : "scale(0.95)"
-            }}
-          >
-            {text && (
-              <div style={{
-                position: 'relative',
-                display: 'inline-block',
-                background: "rgba(255,255,255,0.9)",
-                border: `${BORDER_WIDTH}px solid ${qrColor}`,
-                borderRadius: BORDER_RADIUS,
-                boxShadow: `0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px ${qrColor}20`,
-                padding: PADDING,
-                width: QR_SIZE,
-                height: QR_SIZE,
-                animation: text ? "pulse 2s infinite" : "none"
-              }}>
-                <QRCodeCanvas
-                  value={text}
-                  size={QR_SIZE}
-                  level="H"
-                  includeMargin={false}
-                  renderAs="canvas"
-                  bgColor="#fff"
-                  fgColor={qrColor}
-                  style={{ borderRadius: BORDER_RADIUS - 8, boxSizing: 'border-box', display: 'block' }}
-                />
-                {logoDataUrl &&
-                  <img
-                    src={logoDataUrl}
-                    alt="central logo"
-                    style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      width: LOGO_SIZE,
-                      height: LOGO_SIZE,
-                      transform: 'translate(-50%, -50%)',
-                      borderRadius: '50%',
-                      background: '#fff',
-                      border: '4px solid #fff',
-                      boxShadow: '0 2px 9px #b9ceeb44',
-                      pointerEvents: 'none'
-                    }}
-                  />
-                }
-              </div>
-            )}
-          </div>
+
           <button
             onClick={tryDownload}
             disabled={!text}
@@ -450,7 +469,7 @@ function App() {
               width: "100%",
               borderRadius: 16,
               border: "none",
-              background: text ? qrColor : "#e2e8f0",
+              background: text ? "#1e293b" : "#e2e8f0",
               color: text ? "#fff" : "#94a3b8",
               fontWeight: 600,
               fontSize: 16,
@@ -489,18 +508,20 @@ function App() {
               {text ? "✨ Download QR Code" : "Enter text to generate"}
             </span>
           </button>
-          <p style={{ 
-            color: "#64748b", 
-            display: "block", 
-            marginTop: 20, 
-            fontSize: 14,
-            fontWeight: 400,
-            lineHeight: 1.5
-          }}>
-            {text
-              ? "🎯 Your QR code is ready! Click download to save with transparent background."
-              : "💡 Enter any text or URL above to create your custom QR code with logo."}
-          </p>
+            <p style={{ 
+              color: "#64748b", 
+              display: "block", 
+              marginTop: 20, 
+              fontSize: 14,
+              fontWeight: 400,
+              lineHeight: 1.5,
+              textAlign: "center"
+            }}>
+              {text
+                ? "🎯 Your QR code is ready! Click download to save with transparent background."
+                : "💡 Enter any text or URL above to create your custom QR code with logo."}
+            </p>
+          </div>
         </div>
       </div>
     </>
