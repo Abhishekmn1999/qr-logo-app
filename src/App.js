@@ -179,6 +179,7 @@ function App() {
   return (
     <>
       <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
       @keyframes shake {
         0% { transform: translateX(0); }
         18% { transform: translateX(-7px);}
@@ -188,137 +189,197 @@ function App() {
         90% { transform: translateX(-3px);}
         100% { transform: translateX(0); }
       }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
       `}</style>
       <div style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #e7eefb 60%, #fafbfd 100%)",
-        fontFamily: "Inter, Segoe UI, Arial, sans-serif",
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
         display: "flex",
         justifyContent: "center",
-        alignItems: "center"
+        alignItems: "center",
+        padding: "20px"
       }}>
         <div style={{
-          background: "#fff",
-          borderRadius: 16,
-          boxShadow: "0 4px 28px #b5c6e026",
-          width: 370,
-          maxWidth: "99vw",
-          padding: 36,
+          background: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(20px)",
+          borderRadius: 24,
+          boxShadow: "0 20px 40px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.2)",
+          width: 420,
+          maxWidth: "95vw",
+          padding: 40,
           textAlign: 'center',
+          animation: "fadeIn 0.6s ease-out",
+          border: "1px solid rgba(255,255,255,0.2)"
         }}>
-          <h2 style={{
-            color: qrColor,
-            marginBottom: 10,
+          <h1 style={{
+            background: `linear-gradient(135deg, ${qrColor}, #667eea)`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            marginBottom: 8,
             fontWeight: 700,
-            fontSize: 23,
-            letterSpacing: ".01em"
+            fontSize: 32,
+            letterSpacing: "-0.02em",
+            textAlign: "center"
           }}>
-            QR Code Generator
-          </h2>
+            QR Generator
+          </h1>
+          <p style={{
+            color: "#64748b",
+            fontSize: 16,
+            marginBottom: 32,
+            fontWeight: 400
+          }}>Create beautiful QR codes with custom logos</p>
           <input
             type="text"
             value={text}
-            placeholder="Enter text or URL"
+            placeholder="Enter text or URL to generate QR code"
             onChange={e => setText(e.target.value)}
             style={{
               width: "100%",
-              padding: "8px 10px",
-              marginBottom: 22,
+              padding: "16px 20px",
+              marginBottom: 28,
               fontSize: 16,
-              border: focused ? `2px solid ${qrColor}` : "2px solid #cfd8dc",
-              borderRadius: 9,
+              border: focused ? `2px solid ${qrColor}` : "2px solid #e2e8f0",
+              borderRadius: 16,
               outline: "none",
               boxSizing: "border-box",
-              boxShadow: focused ? `0 0 0 2px ${qrColor}33` : "none",
-              background: "#f7fafc",
-              transition: "border-color 0.32s, box-shadow 0.35s"
+              boxShadow: focused ? `0 0 0 4px ${qrColor}15` : "0 2px 4px rgba(0,0,0,0.04)",
+              background: "rgba(255,255,255,0.8)",
+              transition: "all 0.3s ease",
+              fontWeight: 400
             }}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             autoComplete="off"
           />
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 20,
+            marginBottom: 28
+          }}>
           {/* QR color picker option */}
           <div style={{
-            marginBottom: 16,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
-            gap: 12
+            gap: 8,
+            padding: "16px",
+            background: "rgba(255,255,255,0.6)",
+            borderRadius: 16,
+            border: "1px solid rgba(255,255,255,0.3)"
           }}>
             <span style={{
               fontSize: 14,
-              color: "#223269",
-              fontWeight: 500
-            }}>QR color:</span>
+              color: "#475569",
+              fontWeight: 600,
+              marginBottom: 4
+            }}>QR Color</span>
             <input
               type="color"
               value={qrColor}
               onChange={e => setQrColor(e.target.value)}
               style={{
-                width: 34,
-                height: 34,
-                border: "none",
-                borderRadius: "35%",
-                boxShadow: "0 1px 3px #ddd",
+                width: 48,
+                height: 48,
+                border: "3px solid #fff",
+                borderRadius: "50%",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                 cursor: "pointer",
-                background: "none"
+                background: "none",
+                transition: "transform 0.2s ease"
               }}
+              onMouseEnter={e => e.target.style.transform = "scale(1.1)"}
+              onMouseLeave={e => e.target.style.transform = "scale(1)"}
             />
             <span style={{
-              fontSize: 13,
-              color: "#888",
-              letterSpacing: 1
+              fontSize: 12,
+              color: "#64748b",
+              fontWeight: 500,
+              letterSpacing: 0.5
             }}>
               {qrColor.toUpperCase()}
             </span>
           </div>
           {/* Logo upload option */}
           <div style={{
-            marginBottom: 16,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
-            gap: 12
+            gap: 8,
+            padding: "16px",
+            background: "rgba(255,255,255,0.6)",
+            borderRadius: 16,
+            border: "1px solid rgba(255,255,255,0.3)"
           }}>
             <span style={{
               fontSize: 14,
-              color: "#223269",
-              fontWeight: 500
-            }}>Logo:</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              style={{
-                fontSize: 13,
-                padding: "4px 8px",
-                border: "1px solid #cfd8dc",
-                borderRadius: 6,
-                cursor: "pointer"
-              }}
-            />
+              color: "#475569",
+              fontWeight: 600,
+              marginBottom: 4
+            }}>Logo</span>
+            <label style={{
+              display: "inline-block",
+              padding: "8px 16px",
+              background: "linear-gradient(135deg, #667eea, #764ba2)",
+              color: "white",
+              borderRadius: 12,
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              transition: "transform 0.2s ease",
+              boxShadow: "0 2px 8px rgba(102, 126, 234, 0.3)"
+            }}
+            onMouseEnter={e => e.target.style.transform = "translateY(-2px)"}
+            onMouseLeave={e => e.target.style.transform = "translateY(0)"}
+            >
+              Choose File
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{ display: "none" }}
+              />
+            </label>
+            <span style={{
+              fontSize: 11,
+              color: "#64748b",
+              textAlign: "center"
+            }}>PNG, JPG, SVG</span>
           </div>
-          {/* QR code preview with thin border, roundness, and bg */}
+          </div>
+          {/* QR code preview */}
           <div
             ref={canvasRef}
             style={{
               minHeight: QR_SIZE + PADDING * 2,
-              marginBottom: 16,
-              opacity: text ? 1 : 0.16,
-              transition: "opacity 0.45s"
+              marginBottom: 28,
+              opacity: text ? 1 : 0.3,
+              transition: "all 0.5s ease",
+              transform: text ? "scale(1)" : "scale(0.95)"
             }}
           >
             {text && (
               <div style={{
                 position: 'relative',
                 display: 'inline-block',
-                background: "#f7fafd",
+                background: "rgba(255,255,255,0.9)",
                 border: `${BORDER_WIDTH}px solid ${qrColor}`,
                 borderRadius: BORDER_RADIUS,
-                boxShadow: "0 1.5px 8px #e4ecfa",
+                boxShadow: `0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px ${qrColor}20`,
                 padding: PADDING,
                 width: QR_SIZE,
                 height: QR_SIZE,
+                animation: text ? "pulse 2s infinite" : "none"
               }}>
                 <QRCodeCanvas
                   value={text}
@@ -356,33 +417,41 @@ function App() {
             onClick={tryDownload}
             disabled={!text}
             style={{
-              marginTop: 10,
-              padding: "12px 0",
+              marginTop: 8,
+              padding: "16px 32px",
               width: "100%",
-              borderRadius: 11,
+              borderRadius: 16,
               border: "none",
               background: text
-                ? `linear-gradient(90deg,${qrColor} 15%, #52e0ff 100%)`
-                : "#e1e7f0",
-              color: text ? "#fff" : "#b8bccc",
+                ? `linear-gradient(135deg, ${qrColor}, #667eea)`
+                : "#e2e8f0",
+              color: text ? "#fff" : "#94a3b8",
               fontWeight: 600,
               fontSize: 16,
-              boxShadow: text ? "0 2px 12px #62b8fa33" : undefined,
+              boxShadow: text ? `0 8px 25px ${qrColor}40` : "none",
               cursor: text ? "pointer" : "not-allowed",
-              transition: "background 0.25s, color 0.25s, transform 0.17s",
-              transform: buttonHover ? "scale(1.044)" : "scale(1.0)",
-              animation: shake ? "shake 0.41s" : "none"
+              transition: "all 0.3s ease",
+              transform: buttonHover && text ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1.0)",
+              animation: shake ? "shake 0.41s" : "none",
+              letterSpacing: "0.5px"
             }}
             onMouseEnter={() => setButtonHover(true)}
             onMouseLeave={() => setButtonHover(false)}
           >
-            Download QR Code
+            {text ? "✨ Download QR Code" : "Enter text to generate"}
           </button>
-          <small style={{ color: "#b1b9cc", display: "block", marginTop: 17, fontSize: 13 }}>
+          <p style={{ 
+            color: "#64748b", 
+            display: "block", 
+            marginTop: 20, 
+            fontSize: 14,
+            fontWeight: 400,
+            lineHeight: 1.5
+          }}>
             {text
-              ? "Download will look exactly like this preview."
-              : "Enter text above to generate your QR code."}
-          </small>
+              ? "🎯 Your QR code is ready! Click download to save with transparent background."
+              : "💡 Enter any text or URL above to create your custom QR code with logo."}
+          </p>
         </div>
       </div>
     </>
