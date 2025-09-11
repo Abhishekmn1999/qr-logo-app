@@ -197,6 +197,14 @@ function App() {
         0%, 100% { transform: scale(1); }
         50% { transform: scale(1.05); }
       }
+      @keyframes buttonGlow {
+        0%, 100% { box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); }
+        50% { box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6), 0 0 20px rgba(102, 126, 234, 0.3); }
+      }
+      @keyframes qrPattern {
+        0%, 100% { opacity: 0.1; }
+        50% { opacity: 0.3; }
+      }
       `}</style>
       <div style={{
         minHeight: "100vh",
@@ -228,8 +236,27 @@ function App() {
             fontWeight: 700,
             fontSize: 32,
             letterSpacing: "-0.02em",
-            textAlign: "center"
+            textAlign: "center",
+            position: "relative",
+            overflow: "hidden"
           }}>
+            <div style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundImage: `
+                radial-gradient(circle at 20% 20%, ${qrColor}15 2px, transparent 2px),
+                radial-gradient(circle at 80% 20%, ${qrColor}15 2px, transparent 2px),
+                radial-gradient(circle at 20% 80%, ${qrColor}15 2px, transparent 2px),
+                radial-gradient(circle at 80% 80%, ${qrColor}15 2px, transparent 2px),
+                radial-gradient(circle at 50% 50%, ${qrColor}10 1px, transparent 1px)
+              `,
+              backgroundSize: "20px 20px, 20px 20px, 20px 20px, 20px 20px, 10px 10px",
+              animation: "qrPattern 3s ease-in-out infinite",
+              zIndex: -1
+            }} />
             QR Generator
           </h1>
           <p style={{
@@ -432,13 +459,36 @@ function App() {
               cursor: text ? "pointer" : "not-allowed",
               transition: "all 0.3s ease",
               transform: buttonHover && text ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1.0)",
-              animation: shake ? "shake 0.41s" : "none",
-              letterSpacing: "0.5px"
+              animation: shake ? "shake 0.41s" : text && buttonHover ? "buttonGlow 2s ease-in-out infinite" : "none",
+              letterSpacing: "0.5px",
+              position: "relative",
+              overflow: "hidden"
             }}
             onMouseEnter={() => setButtonHover(true)}
             onMouseLeave={() => setButtonHover(false)}
           >
-            {text ? "✨ Download QR Code" : "Enter text to generate"}
+            {text && (
+              <div style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundImage: `
+                  linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%),
+                  radial-gradient(circle at 25% 25%, rgba(255,255,255,0.2) 2px, transparent 2px),
+                  radial-gradient(circle at 75% 25%, rgba(255,255,255,0.2) 2px, transparent 2px),
+                  radial-gradient(circle at 25% 75%, rgba(255,255,255,0.2) 2px, transparent 2px),
+                  radial-gradient(circle at 75% 75%, rgba(255,255,255,0.2) 2px, transparent 2px)
+                `,
+                backgroundSize: "200% 100%, 15px 15px, 15px 15px, 15px 15px, 15px 15px",
+                animation: buttonHover ? "qrPattern 2s ease-in-out infinite" : "none",
+                pointerEvents: "none"
+              }} />
+            )}
+            <span style={{ position: "relative", zIndex: 1 }}>
+              {text ? "✨ Download QR Code" : "Enter text to generate"}
+            </span>
           </button>
           <p style={{ 
             color: "#64748b", 
