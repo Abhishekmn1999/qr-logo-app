@@ -198,8 +198,12 @@ function App() {
         50% { transform: scale(1.05); }
       }
       @keyframes buttonGlow {
-        0%, 100% { box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); }
-        50% { box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6), 0 0 20px rgba(102, 126, 234, 0.3); }
+        0%, 100% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-3px) scale(1.05); }
+      }
+      @keyframes buttonPulse {
+        0%, 100% { box-shadow: 0 8px 25px rgba(0,0,0,0.2); }
+        50% { box-shadow: 0 12px 35px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.2); }
       }
       @keyframes qrPattern {
         0%, 100% { opacity: 0.1; }
@@ -228,10 +232,7 @@ function App() {
           border: "1px solid rgba(255,255,255,0.2)"
         }}>
           <h1 style={{
-            background: `linear-gradient(135deg, ${qrColor}, #667eea)`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
+            color: qrColor,
             marginBottom: 8,
             fontWeight: 700,
             fontSize: 32,
@@ -449,9 +450,7 @@ function App() {
               width: "100%",
               borderRadius: 16,
               border: "none",
-              background: text
-                ? `linear-gradient(135deg, ${qrColor}, #667eea)`
-                : "#e2e8f0",
+              background: text ? qrColor : "#e2e8f0",
               color: text ? "#fff" : "#94a3b8",
               fontWeight: 600,
               fontSize: 16,
@@ -459,7 +458,7 @@ function App() {
               cursor: text ? "pointer" : "not-allowed",
               transition: "all 0.3s ease",
               transform: buttonHover && text ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1.0)",
-              animation: shake ? "shake 0.41s" : text && buttonHover ? "buttonGlow 2s ease-in-out infinite" : "none",
+              animation: shake ? "shake 0.41s" : text && buttonHover ? "buttonGlow 0.6s ease-in-out infinite, buttonPulse 2s ease-in-out infinite" : "none",
               letterSpacing: "0.5px",
               position: "relative",
               overflow: "hidden"
