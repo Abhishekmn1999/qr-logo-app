@@ -58,114 +58,148 @@ function App() {
   }
 
   const handleDownload = () => {
-    const qrCanvas = canvasRef.current.querySelector('canvas');
-    if (!qrCanvas) return;
+    if (!text) return;
 
-    // High quality output - 4x resolution
-    const SCALE = 4;
-    const PNG_SIZE = (QR_SIZE + PADDING * 2) * SCALE;
-    const outputCanvas = document.createElement('canvas');
-    outputCanvas.width = PNG_SIZE;
-    outputCanvas.height = PNG_SIZE;
-    const ctx = outputCanvas.getContext('2d');
-
-    // Transparent background - no fill needed
-
-    // Border (scaled)
-    roundRect(
-      ctx,
-      (BORDER_WIDTH * SCALE) / 2,
-      (BORDER_WIDTH * SCALE) / 2,
-      PNG_SIZE - (BORDER_WIDTH * SCALE),
-      PNG_SIZE - (BORDER_WIDTH * SCALE),
-      BORDER_RADIUS * SCALE,
-      qrColor,
-      BORDER_WIDTH * SCALE
+    // Create high-resolution QR code
+    const SCALE = 8; // Higher scale for crisp QR
+    const HIGH_QR_SIZE = 512; // Fixed high resolution
+    const PNG_SIZE = (QR_SIZE + PADDING * 2) * 4;
+    
+    // Create temporary canvas for high-res QR
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = HIGH_QR_SIZE;
+    tempCanvas.height = HIGH_QR_SIZE;
+    
+    // Generate crisp QR using QRCodeCanvas at high resolution
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    document.body.appendChild(tempDiv);
+    
+    const { createRoot } = require('react-dom/client');
+    const root = createRoot(tempDiv);
+    
+    root.render(
+      React.createElement(QRCodeCanvas, {
+        value: text,
+        size: HIGH_QR_SIZE,
+        level: 'H',
+        includeMargin: false,
+        bgColor: '#FFFFFF',
+        fgColor: qrColor
+      })
     );
+    
+    setTimeout(() => {
+      const highResQRCanvas = tempDiv.querySelector('canvas');
+      
+      // Create output canvas
+      const outputCanvas = document.createElement('canvas');
+      outputCanvas.width = PNG_SIZE;
+      outputCanvas.height = PNG_SIZE;
+      const ctx = outputCanvas.getContext('2d');
+      
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = false;
 
-    // White inner "card" (scaled)
-    ctx.save();
-    ctx.beginPath();
-    roundRect(
-      ctx,
-      (PADDING - 5) * SCALE,
-      (PADDING - 5) * SCALE,
-      (QR_SIZE + 10) * SCALE,
-      (QR_SIZE + 10) * SCALE,
-      (BORDER_RADIUS - 6) * SCALE,
-      "#fff",
-      0
-    );
-    ctx.clip();
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(
-      (PADDING - 5) * SCALE,
-      (PADDING - 5) * SCALE,
-      (QR_SIZE + 10) * SCALE,
-      (QR_SIZE + 10) * SCALE
-    );
-    ctx.restore();
+      // Border
+      roundRect(
+        ctx,
+        (BORDER_WIDTH * 4) / 2,
+        (BORDER_WIDTH * 4) / 2,
+        PNG_SIZE - (BORDER_WIDTH * 4),
+        PNG_SIZE - (BORDER_WIDTH * 4),
+        BORDER_RADIUS * 4,
+        qrColor,
+        BORDER_WIDTH * 4
+      );
 
-    // QR Code in Card (scaled)
-    ctx.drawImage(qrCanvas, PADDING * SCALE, PADDING * SCALE, QR_SIZE * SCALE, QR_SIZE * SCALE);
+      // White inner card
+      ctx.save();
+      ctx.beginPath();
+      roundRect(
+        ctx,
+        (PADDING - 5) * 4,
+        (PADDING - 5) * 4,
+        (QR_SIZE + 10) * 4,
+        (QR_SIZE + 10) * 4,
+        (BORDER_RADIUS - 6) * 4,
+        "#fff",
+        0
+      );
+      ctx.clip();
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(
+        (PADDING - 5) * 4,
+        (PADDING - 5) * 4,
+        (QR_SIZE + 10) * 4,
+        (QR_SIZE + 10) * 4
+      );
+      ctx.restore();
 
-    // Logo shadow and circle (scaled)
-    const center = PNG_SIZE / 2;
-    if (logoDataUrl) {
-      const img = new window.Image();
-      img.src = logoDataUrl;
-      img.crossOrigin = "Anonymous";
-      img.onload = () => {
-        // Shadow under circle (scaled)
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(center, center, (LOGO_SIZE / 2 + 6) * SCALE, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.shadowColor = "#dde3ed";
-        ctx.shadowBlur = LOGO_SHADOW * SCALE;
-        ctx.fillStyle = "#fff";
-        ctx.fill();
-        ctx.restore();
+      // Draw high-res QR code
+      ctx.drawImage(highResQRCanvas, PADDING * 4, PADDING * 4, QR_SIZE * 4, QR_SIZE * 4);
 
-        // Circle crop of logo (scaled)
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(center, center, (LOGO_SIZE / 2) * SCALE, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(
-          img,
-          center - (LOGO_SIZE / 2) * SCALE,
-          center - (LOGO_SIZE / 2) * SCALE,
-          LOGO_SIZE * SCALE,
-          LOGO_SIZE * SCALE
-        );
-        ctx.restore();
+      // Logo handling
+      const center = PNG_SIZE / 2;
+      if (logoDataUrl) {
+        const img = new window.Image();
+        img.src = logoDataUrl;
+        img.crossOrigin = "Anonymous";
+        img.onload = () => {
+          // Shadow
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(center, center, (LOGO_SIZE / 2 + 6) * 4, 0, Math.PI * 2);
+          ctx.shadowColor = "#dde3ed";
+          ctx.shadowBlur = LOGO_SHADOW * 4;
+          ctx.fillStyle = "#fff";
+          ctx.fill();
+          ctx.restore();
 
-        // White circle border (scaled)
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(center, center, (LOGO_SIZE / 2) * SCALE, 0, Math.PI * 2);
-        ctx.lineWidth = 4 * SCALE;
-        ctx.strokeStyle = "#fff";
-        ctx.stroke();
-        ctx.restore();
+          // Logo
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(center, center, (LOGO_SIZE / 2) * 4, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(
+            img,
+            center - (LOGO_SIZE / 2) * 4,
+            center - (LOGO_SIZE / 2) * 4,
+            LOGO_SIZE * 4,
+            LOGO_SIZE * 4
+          );
+          ctx.restore();
 
-        // Download
-        const outUrl = outputCanvas.toDataURL();
+          // Border
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(center, center, (LOGO_SIZE / 2) * 4, 0, Math.PI * 2);
+          ctx.lineWidth = 16;
+          ctx.strokeStyle = "#fff";
+          ctx.stroke();
+          ctx.restore();
+
+          // Download
+          const outUrl = outputCanvas.toDataURL('image/png', 1.0);
+          const link = document.createElement('a');
+          link.href = outUrl;
+          link.download = 'qr-custom.png';
+          link.click();
+          
+          document.body.removeChild(tempDiv);
+        };
+      } else {
+        // Download without logo
+        const outUrl = outputCanvas.toDataURL('image/png', 1.0);
         const link = document.createElement('a');
         link.href = outUrl;
         link.download = 'qr-custom.png';
         link.click();
-      };
-    } else {
-      // Just download QR w/o logo
-      const outUrl = outputCanvas.toDataURL();
-      const link = document.createElement('a');
-      link.href = outUrl;
-      link.download = 'qr-custom.png';
-      link.click();
-    }
+        
+        document.body.removeChild(tempDiv);
+      }
+    }, 100);
   };
 
   const tryDownload = () => {
