@@ -4,7 +4,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 const CENTER_IMAGE = null; // No default image
 const DEFAULT_COLOR = "#144da3";
 
-const QR_SIZE = 210;
+const QR_SIZE = window.innerWidth > 768 ? 210 : 180;
 const BORDER_COLOR = DEFAULT_COLOR;
 const BORDER_WIDTH = 4;
 const BORDER_RADIUS = 20; // px for both border and QR
@@ -61,8 +61,9 @@ function App() {
     const qrCanvas = canvasRef.current.querySelector('canvas');
     if (!qrCanvas) return;
 
-    // Outer canvas matches the preview (padding+border+QR+border-radius)
-    const PNG_SIZE = QR_SIZE + PADDING * 2;
+    // High quality output - 4x resolution
+    const SCALE = 4;
+    const PNG_SIZE = (QR_SIZE + PADDING * 2) * SCALE;
     const outputCanvas = document.createElement('canvas');
     outputCanvas.width = PNG_SIZE;
     outputCanvas.height = PNG_SIZE;
@@ -70,82 +71,82 @@ function App() {
 
     // Transparent background - no fill needed
 
-    // Border
+    // Border (scaled)
     roundRect(
       ctx,
-      BORDER_WIDTH / 2,
-      BORDER_WIDTH / 2,
-      PNG_SIZE - BORDER_WIDTH,
-      PNG_SIZE - BORDER_WIDTH,
-      BORDER_RADIUS,
+      (BORDER_WIDTH * SCALE) / 2,
+      (BORDER_WIDTH * SCALE) / 2,
+      PNG_SIZE - (BORDER_WIDTH * SCALE),
+      PNG_SIZE - (BORDER_WIDTH * SCALE),
+      BORDER_RADIUS * SCALE,
       qrColor,
-      BORDER_WIDTH
+      BORDER_WIDTH * SCALE
     );
 
-    // White inner "card"
+    // White inner "card" (scaled)
     ctx.save();
     ctx.beginPath();
     roundRect(
       ctx,
-      PADDING - 5,
-      PADDING - 5,
-      QR_SIZE + 10,
-      QR_SIZE + 10,
-      BORDER_RADIUS - 6,
+      (PADDING - 5) * SCALE,
+      (PADDING - 5) * SCALE,
+      (QR_SIZE + 10) * SCALE,
+      (QR_SIZE + 10) * SCALE,
+      (BORDER_RADIUS - 6) * SCALE,
       "#fff",
       0
     );
     ctx.clip();
     ctx.fillStyle = "#fff";
     ctx.fillRect(
-      PADDING - 5,
-      PADDING - 5,
-      QR_SIZE + 10,
-      QR_SIZE + 10
+      (PADDING - 5) * SCALE,
+      (PADDING - 5) * SCALE,
+      (QR_SIZE + 10) * SCALE,
+      (QR_SIZE + 10) * SCALE
     );
     ctx.restore();
 
-    // QR Code in Card
-    ctx.drawImage(qrCanvas, PADDING, PADDING, QR_SIZE, QR_SIZE);
+    // QR Code in Card (scaled)
+    ctx.drawImage(qrCanvas, PADDING * SCALE, PADDING * SCALE, QR_SIZE * SCALE, QR_SIZE * SCALE);
 
-    // Logo shadow and circle (matches preview)
+    // Logo shadow and circle (scaled)
     const center = PNG_SIZE / 2;
     if (logoDataUrl) {
       const img = new window.Image();
       img.src = logoDataUrl;
       img.crossOrigin = "Anonymous";
       img.onload = () => {
-        // Shadow under circle
+        // Shadow under circle (scaled)
         ctx.save();
         ctx.beginPath();
-        ctx.arc(center, center, LOGO_SIZE / 2 + 6, 0, Math.PI * 2);
+        ctx.arc(center, center, (LOGO_SIZE / 2 + 6) * SCALE, 0, Math.PI * 2);
         ctx.closePath();
         ctx.shadowColor = "#dde3ed";
-        ctx.shadowBlur = LOGO_SHADOW;
+        ctx.shadowBlur = LOGO_SHADOW * SCALE;
         ctx.fillStyle = "#fff";
         ctx.fill();
         ctx.restore();
 
-        // Circle crop of logo
+        // Circle crop of logo (scaled)
         ctx.save();
         ctx.beginPath();
-        ctx.arc(center, center, LOGO_SIZE / 2, 0, Math.PI * 2);
+        ctx.arc(center, center, (LOGO_SIZE / 2) * SCALE, 0, Math.PI * 2);
         ctx.closePath();
         ctx.clip();
         ctx.drawImage(
           img,
-          center - LOGO_SIZE / 2,
-          center - LOGO_SIZE / 2,
-          LOGO_SIZE,
-          LOGO_SIZE
+          center - (LOGO_SIZE / 2) * SCALE,
+          center - (LOGO_SIZE / 2) * SCALE,
+          LOGO_SIZE * SCALE,
+          LOGO_SIZE * SCALE
         );
         ctx.restore();
 
-        // White circle border
+        // White circle border (scaled)
         ctx.save();
         ctx.beginPath();
-        ctx.arc(center, center, LOGO_SIZE / 2, 0, Math.PI * 2);
-        ctx.lineWidth = 4;
+        ctx.arc(center, center, (LOGO_SIZE / 2) * SCALE, 0, Math.PI * 2);
+        ctx.lineWidth = 4 * SCALE;
         ctx.strokeStyle = "#fff";
         ctx.stroke();
         ctx.restore();
@@ -212,29 +213,51 @@ function App() {
       `}</style>
       <div style={{
         minHeight: "100vh",
+        height: "100vh",
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
         fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
         display: "flex",
+        flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        padding: "20px"
+        padding: "10px",
+        overflow: "hidden"
       }}>
+        <div style={{
+          color: "white",
+          textAlign: "center",
+          marginBottom: "20px",
+          maxWidth: "600px"
+        }}>
+          <h1 style={{
+            fontSize: "2.5rem",
+            fontWeight: 700,
+            marginBottom: "8px",
+            textShadow: "0 2px 4px rgba(0,0,0,0.3)"
+          }}>QR Code Generator</h1>
+          <p style={{
+            fontSize: "1.1rem",
+            opacity: 0.9,
+            fontWeight: 400
+          }}>Create beautiful QR codes with custom logos and colors. Download with transparent background for professional use.</p>
+        </div>
         <div style={{
           background: "rgba(255, 255, 255, 0.95)",
           backdropFilter: "blur(20px)",
-          borderRadius: 24,
-          boxShadow: "0 20px 40px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.2)",
-          width: "90vw",
-          maxWidth: "1200px",
-          minHeight: "auto",
-          padding: "30px",
+          borderRadius: 20,
+          boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+          width: "95vw",
+          maxWidth: "1000px",
+          maxHeight: "70vh",
+          padding: "20px",
           textAlign: 'center',
           animation: "fadeIn 0.6s ease-out",
           border: "1px solid rgba(255,255,255,0.2)",
           display: "flex",
           flexDirection: window.innerWidth > 768 ? "row" : "column",
-          gap: "30px",
-          alignItems: "flex-start"
+          gap: window.innerWidth > 768 ? "30px" : "15px",
+          alignItems: "center",
+          overflow: "auto"
         }}>
           {/* Left side - QR Preview */}
           <div style={{
@@ -243,7 +266,7 @@ function App() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            minHeight: "400px"
+            minHeight: window.innerWidth > 768 ? "350px" : "200px"
           }}>
             <div
               ref={canvasRef}
@@ -323,23 +346,6 @@ function App() {
             flexDirection: "column",
             width: "100%"
           }}>
-            <h1 style={{
-              color: "#1e293b",
-              marginBottom: 8,
-              fontWeight: 700,
-              fontSize: window.innerWidth > 768 ? 32 : 28,
-              letterSpacing: "-0.02em",
-              textAlign: "center"
-            }}>
-              QR Generator
-            </h1>
-            <p style={{
-              color: "#64748b",
-              fontSize: 16,
-              marginBottom: 32,
-              fontWeight: 400,
-              textAlign: "center"
-            }}>Create beautiful QR codes with custom logos</p>
           <input
             type="text"
             value={text}
@@ -348,7 +354,7 @@ function App() {
             style={{
               width: "100%",
               padding: "16px 20px",
-              marginBottom: 28,
+              marginBottom: window.innerWidth > 768 ? 28 : 15,
               fontSize: 16,
               border: focused ? `2px solid ${qrColor}` : "2px solid #e2e8f0",
               borderRadius: 16,
@@ -366,8 +372,8 @@ function App() {
           <div style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
-            gap: 20,
-            marginBottom: 28
+            gap: window.innerWidth > 768 ? 20 : 15,
+            marginBottom: window.innerWidth > 768 ? 28 : 15
           }}>
           {/* QR color picker option */}
           <div style={{
