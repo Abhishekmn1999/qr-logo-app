@@ -426,6 +426,7 @@ function App() {
             flexDirection: "column",
             width: "100%"
           }}>
+          {/* Main QR Text Input */}
           <input
             type="text"
             value={text}
