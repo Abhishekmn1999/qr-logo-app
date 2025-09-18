@@ -19,6 +19,9 @@ function App() {
   const [buttonHover, setButtonHover] = useState(false);
   const [shake, setShake] = useState(false);
   const [qrColor, setQrColor] = useState(DEFAULT_COLOR);
+  const [overlayText, setOverlayText] = useState('');
+  const [fontSize, setFontSize] = useState(16);
+  const [fontFamily, setFontFamily] = useState('Inter');
   const canvasRef = useRef();
 
   // Update logo when color or image source changes (allow for dynamic image)
@@ -139,6 +142,19 @@ function App() {
 
       // Draw high-res QR code
       ctx.drawImage(highResQRCanvas, PADDING * 4, PADDING * 4, QR_SIZE * 4, QR_SIZE * 4);
+      
+      // Add text overlay if present
+      if (overlayText) {
+        ctx.font = `${fontSize * 4}px ${fontFamily}`;
+        ctx.fillStyle = "#1e293b";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        
+        const textY = PADDING * 4 + QR_SIZE * 4 + 20 * 4;
+        const textX = PNG_SIZE / 2;
+        
+        ctx.fillText(overlayText, textX, textY);
+      }
 
       // Logo handling
       const center = PNG_SIZE / 2;
@@ -190,6 +206,19 @@ function App() {
           document.body.removeChild(tempDiv);
         };
       } else {
+        // Add text overlay for no-logo version
+        if (overlayText) {
+          ctx.font = `${fontSize * 4}px ${fontFamily}`;
+          ctx.fillStyle = "#1e293b";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          
+          const textY = PADDING * 4 + QR_SIZE * 4 + 20 * 4;
+          const textX = PNG_SIZE / 2;
+          
+          ctx.fillText(overlayText, textX, textY);
+        }
+        
         // Download without logo
         const outUrl = outputCanvas.toDataURL('image/png', 1.0);
         const link = document.createElement('a');
@@ -354,6 +383,23 @@ function App() {
                   }
                 </div>
               )}
+              
+              {/* Text overlay below QR */}
+              {text && overlayText && (
+                <div style={{
+                  marginTop: 12,
+                  fontSize: fontSize,
+                  fontFamily: fontFamily,
+                  color: "#1e293b",
+                  fontWeight: 500,
+                  textAlign: "center",
+                  maxWidth: QR_SIZE + PADDING * 2,
+                  wordWrap: "break-word"
+                }}>
+                  {overlayText}
+                </div>
+              )}
+              
               {!text && (
                 <div style={{
                   width: QR_SIZE + PADDING * 2,
@@ -498,6 +544,104 @@ function App() {
               textAlign: "center"
             }}>PNG, JPG, SVG</span>
           </div>
+          </div>
+          
+          {/* Text Overlay Options */}
+          <div style={{
+            marginBottom: window.innerWidth > 768 ? 28 : 15,
+            padding: "16px",
+            background: "rgba(255,255,255,0.6)",
+            borderRadius: 16,
+            border: "1px solid rgba(255,255,255,0.3)"
+          }}>
+            <h3 style={{
+              fontSize: 14,
+              color: "#475569",
+              fontWeight: 600,
+              marginBottom: 12,
+              textAlign: "center"
+            }}>Text Overlay</h3>
+            
+            <input
+              type="text"
+              value={overlayText}
+              placeholder="Add text below QR code"
+              onChange={e => setOverlayText(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                marginBottom: 12,
+                fontSize: 14,
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                outline: "none",
+                boxSizing: "border-box"
+              }}
+            />
+            
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12
+            }}>
+              <div>
+                <label style={{
+                  fontSize: 12,
+                  color: "#64748b",
+                  fontWeight: 500,
+                  display: "block",
+                  marginBottom: 4
+                }}>Font</label>
+                <select
+                  value={fontFamily}
+                  onChange={e => setFontFamily(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    outline: "none",
+                    background: "white"
+                  }}
+                >
+                  <option value="Inter">Inter</option>
+                  <option value="Arial">Arial</option>
+                  <option value="Helvetica">Helvetica</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Times New Roman">Times</option>
+                  <option value="Courier New">Courier</option>
+                  <option value="Verdana">Verdana</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{
+                  fontSize: 12,
+                  color: "#64748b",
+                  fontWeight: 500,
+                  display: "block",
+                  marginBottom: 4
+                }}>Size</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="24"
+                  value={fontSize}
+                  onChange={e => setFontSize(parseInt(e.target.value))}
+                  style={{
+                    width: "100%",
+                    marginBottom: 4
+                  }}
+                />
+                <span style={{
+                  fontSize: 11,
+                  color: "#94a3b8",
+                  textAlign: "center",
+                  display: "block"
+                }}>{fontSize}px</span>
+              </div>
+            </div>
           </div>
 
           <button
