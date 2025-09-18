@@ -177,7 +177,7 @@ function App() {
           ctx.save();
           ctx.beginPath();
           ctx.arc(center, center, (LOGO_SIZE / 2) * 4, 0, Math.PI * 2);
-          ctx.lineWidth = 16;
+          ctx.lineWidth = 32;
           ctx.strokeStyle = "#fff";
           ctx.stroke();
           ctx.restore();
@@ -350,7 +350,7 @@ function App() {
                         transform: 'translate(-50%, -50%)',
                         borderRadius: '50%',
                         background: '#fff',
-                        border: '4px solid #fff',
+                        border: '8px solid #fff',
                         boxShadow: '0 2px 9px #b9ceeb44',
                         pointerEvents: 'none'
                       }}
