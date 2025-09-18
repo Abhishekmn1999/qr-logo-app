@@ -426,35 +426,52 @@ function App() {
             flexDirection: "column",
             width: "100%"
           }}>
-          {/* Main QR Text Input */}
-          <input
-            type="text"
-            value={text}
-            placeholder="Enter text or URL to generate QR code"
-            onChange={e => setText(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "16px 20px",
-              marginBottom: window.innerWidth > 768 ? 28 : 15,
-              fontSize: 16,
-              border: focused ? `2px solid ${qrColor}` : "2px solid #e2e8f0",
-              borderRadius: 16,
-              outline: "none",
-              boxSizing: "border-box",
-              boxShadow: focused ? `0 0 0 4px ${qrColor}15` : "0 2px 4px rgba(0,0,0,0.04)",
-              background: "rgba(255,255,255,0.8)",
-              transition: "all 0.3s ease",
-              fontWeight: 400
-            }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            autoComplete="off"
-          />
+          
+          {/* Main QR Text Input - ENTER YOUR TEXT/URL HERE */}
+          <div style={{
+            marginBottom: window.innerWidth > 768 ? 28 : 20,
+            padding: "16px",
+            background: "rgba(102, 126, 234, 0.1)",
+            borderRadius: 16,
+            border: "2px solid rgba(102, 126, 234, 0.3)"
+          }}>
+            <label style={{
+              fontSize: 14,
+              color: "#1e293b",
+              fontWeight: 600,
+              display: "block",
+              marginBottom: 8,
+              textAlign: "center"
+            }}>📝 ENTER YOUR TEXT OR URL HERE</label>
+            <input
+              type="text"
+              value={text}
+              placeholder="Type your text, URL, or message here..."
+              onChange={e => setText(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "16px 20px",
+                fontSize: 16,
+                border: focused ? `3px solid ${qrColor}` : "2px solid #e2e8f0",
+                borderRadius: 12,
+                outline: "none",
+                boxSizing: "border-box",
+                boxShadow: focused ? `0 0 0 4px ${qrColor}15` : "0 2px 4px rgba(0,0,0,0.04)",
+                background: "white",
+                transition: "all 0.3s ease",
+                fontWeight: 400
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              autoComplete="off"
+            />
+          </div>
+          {/* Color and Logo Options */}
           <div style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: window.innerWidth > 768 ? 20 : 15,
-            marginBottom: window.innerWidth > 768 ? 28 : 15
+            marginBottom: window.innerWidth > 768 ? 20 : 15
           }}>
           {/* QR color picker option */}
           <div style={{
