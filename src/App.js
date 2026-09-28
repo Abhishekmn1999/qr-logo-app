@@ -1,574 +1,772 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { QRCodeCanvas } from 'qrcode.react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
+import AnimatedLogo from './components/AnimatedLogo';
+import TemplateTabs from './components/TemplateTabs';
+import DesignControls from './components/DesignControls';
+import HistoryDrawer, { getHistory, saveHistoryItem } from './components/HistoryDrawer';
+import BatchModal from './components/BatchModal';
+import { downloadPng, copyPngToClipboard, downloadSvg } from './utils/qrExport';
 
-const CENTER_IMAGE = null; // No default image
 const DEFAULT_COLOR = "#144da3";
-
-const QR_SIZE = window.innerWidth > 768 ? 210 : 180;
-const BORDER_COLOR = DEFAULT_COLOR;
-const BORDER_WIDTH = 4;
-const BORDER_RADIUS = 20; // px for both border and QR
-const PADDING = 10; // same on preview and in PNG
-const LOGO_SIZE = 59; // match px exactly in preview/download
-const LOGO_SHADOW = 7; // for soft shadow in download under logo
+const HIGH_RES_SIZE = 1024;
 
 function App() {
-  const [text, setText] = useState('');
-  const [logoDataUrl, setLogoDataUrl] = useState(null);
-  const [focused, setFocused] = useState(false);
-  const [buttonHover, setButtonHover] = useState(false);
-  const [shake, setShake] = useState(false);
-  const [qrColor, setQrColor] = useState(DEFAULT_COLOR);
-  const canvasRef = useRef();
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('qr_studio_theme') || 'dark';
+    }
+    return 'dark';
+  });
+  const isDark = theme === 'dark';
 
-  // Update logo when color or image source changes (allow for dynamic image)
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('qr_studio_theme', nextTheme);
+    }
+  };
+
+  const [text, setText] = useState('https://github.com/Abhishekmn1999/qr-logo-app');
+  const [templateType, setTemplateType] = useState('url');
+
+  // Styling states
+  const [qrColor, setQrColor] = useState(DEFAULT_COLOR);
+  const [qrColor2, setQrColor2] = useState('#7c3aed');
+  const [isGradient, setIsGradient] = useState(true);
+  const [bgColor, setBgColor] = useState('#ffffff');
+  const [isTransparent, setIsTransparent] = useState(false);
+
+  // Logo states
+  const [logoDataUrl, setLogoDataUrl] = useState(null);
+  const [logoShape, setLogoShape] = useState('circle'); // 'circle' | 'rounded'
+  const [logoSizePercent, setLogoSizePercent] = useState(25); // 15 - 32%
+
+  // Modals & Drawers
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+
+  // UI interaction states
+  const [shake, setShake] = useState(false);
+  const [buttonHover, setButtonHover] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [historyList, setHistoryList] = useState([]);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 860 : false
+  );
+
+  const fileInputRef = useRef(null);
+  const highResCanvasRef = useRef(null);
+  const highResSvgRef = useRef(null);
+
+  // Load history from localStorage on mount
   useEffect(() => {
-    setLogoDataUrl(null);
+    setHistoryList(getHistory());
+  }, []);
+
+  // Responsive window resize listener
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 860);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const qrDisplaySize = isMobile ? 180 : 220;
+
+  const handleTemplateChange = useCallback((newText, type) => {
+    setText(newText);
+    setTemplateType(type);
   }, []);
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please choose an image file (PNG, JPG, SVG, WebP).');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be under 10MB.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (event) => {
-        setLogoDataUrl(event.target.result);
+        setLogoDataUrl(event.target?.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Helper: Draw a rounded rectangle
-  function roundRect(ctx, x, y, width, height, radius, color, borderWidth) {
-    ctx.save();
-    ctx.lineWidth = borderWidth;
-    ctx.strokeStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.arcTo(x + width, y, x + width, y + radius, radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
-    ctx.lineTo(x + radius, y + height);
-    ctx.arcTo(x, y + height, x, y + height - radius, radius);
-    ctx.lineTo(x, y + radius);
-    ctx.arcTo(x, y, x + radius, y, radius);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  const handleDownload = () => {
-    if (!text) return;
-
-    // Create high-resolution QR code
-    const SCALE = 8; // Higher scale for crisp QR
-    const HIGH_QR_SIZE = 512; // Fixed high resolution
-    const PNG_SIZE = (QR_SIZE + PADDING * 2) * 4;
-    
-    // Create temporary canvas for high-res QR
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = HIGH_QR_SIZE;
-    tempCanvas.height = HIGH_QR_SIZE;
-    
-    // Generate crisp QR using QRCodeCanvas at high resolution
-    const tempDiv = document.createElement('div');
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.left = '-9999px';
-    document.body.appendChild(tempDiv);
-    
-    const { createRoot } = require('react-dom/client');
-    const root = createRoot(tempDiv);
-    
-    root.render(
-      React.createElement(QRCodeCanvas, {
-        value: text,
-        size: HIGH_QR_SIZE,
-        level: 'H',
-        includeMargin: false,
-        bgColor: '#FFFFFF',
-        fgColor: qrColor
-      })
-    );
-    
-    setTimeout(() => {
-      const highResQRCanvas = tempDiv.querySelector('canvas');
-      
-      // Create output canvas
-      const outputCanvas = document.createElement('canvas');
-      outputCanvas.width = PNG_SIZE;
-      outputCanvas.height = PNG_SIZE;
-      const ctx = outputCanvas.getContext('2d');
-      
-      // Enable image smoothing for better quality
-      ctx.imageSmoothingEnabled = false;
-
-      // Border
-      roundRect(
-        ctx,
-        (BORDER_WIDTH * 4) / 2,
-        (BORDER_WIDTH * 4) / 2,
-        PNG_SIZE - (BORDER_WIDTH * 4),
-        PNG_SIZE - (BORDER_WIDTH * 4),
-        BORDER_RADIUS * 4,
-        qrColor,
-        BORDER_WIDTH * 4
-      );
-
-      // White inner card
-      ctx.save();
-      ctx.beginPath();
-      roundRect(
-        ctx,
-        (PADDING - 5) * 4,
-        (PADDING - 5) * 4,
-        (QR_SIZE + 10) * 4,
-        (QR_SIZE + 10) * 4,
-        (BORDER_RADIUS - 6) * 4,
-        "#fff",
-        0
-      );
-      ctx.clip();
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(
-        (PADDING - 5) * 4,
-        (PADDING - 5) * 4,
-        (QR_SIZE + 10) * 4,
-        (QR_SIZE + 10) * 4
-      );
-      ctx.restore();
-
-      // Draw high-res QR code
-      ctx.drawImage(highResQRCanvas, PADDING * 4, PADDING * 4, QR_SIZE * 4, QR_SIZE * 4);
-      
-
-
-      // Logo handling
-      const center = PNG_SIZE / 2;
-      if (logoDataUrl) {
-        const img = new window.Image();
-        img.src = logoDataUrl;
-        img.crossOrigin = "Anonymous";
-        img.onload = () => {
-          // Shadow
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(center, center, (LOGO_SIZE / 2 + 6) * 4, 0, Math.PI * 2);
-          ctx.shadowColor = "#dde3ed";
-          ctx.shadowBlur = LOGO_SHADOW * 4;
-          ctx.fillStyle = "#fff";
-          ctx.fill();
-          ctx.restore();
-
-          // Logo
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(center, center, (LOGO_SIZE / 2) * 4, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(
-            img,
-            center - (LOGO_SIZE / 2) * 4,
-            center - (LOGO_SIZE / 2) * 4,
-            LOGO_SIZE * 4,
-            LOGO_SIZE * 4
-          );
-          ctx.restore();
-
-          // Border
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(center, center, (LOGO_SIZE / 2) * 4, 0, Math.PI * 2);
-          ctx.lineWidth = 16;
-          ctx.strokeStyle = "#fff";
-          ctx.stroke();
-          ctx.restore();
-
-          // Download
-          const outUrl = outputCanvas.toDataURL('image/png', 1.0);
-          const link = document.createElement('a');
-          link.href = outUrl;
-          link.download = 'qr-custom.png';
-          link.click();
-          
-          document.body.removeChild(tempDiv);
-        };
-      } else {
-
-        
-        // Download without logo
-        const outUrl = outputCanvas.toDataURL('image/png', 1.0);
-        const link = document.createElement('a');
-        link.href = outUrl;
-        link.download = 'qr-custom.png';
-        link.click();
-        
-        document.body.removeChild(tempDiv);
-      }
-    }, 100);
-  };
-
-  const tryDownload = () => {
-    if (!text) {
-      setShake(true);
-      setTimeout(() => setShake(false), 430);
-    } else {
-      handleDownload();
+  const handleRemoveLogo = () => {
+    setLogoDataUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
+
+  const handleSaveToHistory = () => {
+    if (!text.trim()) return;
+    const updated = saveHistoryItem({
+      text,
+      type: templateType,
+      qrColor,
+      qrColor2,
+      isGradient
+    });
+    setHistoryList(updated);
+  };
+
+  const handleDownloadPng = async () => {
+    if (!text.trim()) {
+      setShake(true);
+      setTimeout(() => setShake(false), 430);
+      return;
+    }
+
+    const qrCanvas = highResCanvasRef.current?.tagName === 'CANVAS'
+      ? highResCanvasRef.current
+      : highResCanvasRef.current?.querySelector?.('canvas') || document.getElementById('high-res-qr-canvas');
+
+    if (!qrCanvas) {
+      alert('Unable to generate canvas export.');
+      return;
+    }
+
+    handleSaveToHistory();
+
+    await downloadPng({
+      qrCanvas,
+      qrColor,
+      qrColor2,
+      isGradient,
+      bgColor,
+      isTransparent,
+      logoDataUrl,
+      logoShape,
+      logoSizePercent,
+      targetSize: HIGH_RES_SIZE,
+      padding: 48,
+      borderRadius: 32,
+      borderWidth: 16
+    }, `qr-${templateType}-${Date.now()}.png`);
+  };
+
+  const handleDownloadSvg = () => {
+    if (!text.trim()) {
+      setShake(true);
+      setTimeout(() => setShake(false), 430);
+      return;
+    }
+
+    const svgElement = highResSvgRef.current?.querySelector?.('svg') || document.getElementById('high-res-qr-svg');
+    if (!svgElement) {
+      alert('SVG export is not ready. Please try again.');
+      return;
+    }
+
+    handleSaveToHistory();
+
+    downloadSvg({
+      svgElement,
+      qrColor,
+      qrColor2,
+      isGradient,
+      logoDataUrl,
+      logoShape,
+      logoSizePercent,
+      isTransparent,
+      bgColor,
+      filename: `qr-${templateType}-${Date.now()}.svg`
+    });
+  };
+
+  const handleCopyToClipboard = async () => {
+    if (!text.trim()) {
+      setShake(true);
+      setTimeout(() => setShake(false), 430);
+      return;
+    }
+
+    const qrCanvas = highResCanvasRef.current?.tagName === 'CANVAS'
+      ? highResCanvasRef.current
+      : highResCanvasRef.current?.querySelector?.('canvas') || document.getElementById('high-res-qr-canvas');
+
+    if (!qrCanvas) return;
+
+    try {
+      await copyPngToClipboard({
+        qrCanvas,
+        qrColor,
+        qrColor2,
+        isGradient,
+        bgColor,
+        isTransparent,
+        logoDataUrl,
+        logoShape,
+        logoSizePercent,
+        targetSize: HIGH_RES_SIZE,
+        padding: 48,
+        borderRadius: 32,
+        borderWidth: 16
+      });
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+      handleSaveToHistory();
+    } catch (err) {
+      alert('Failed to copy image to clipboard: ' + err.message);
+    }
+  };
+
+  const handleSelectHistoryItem = (item) => {
+    setText(item.text);
+    if (item.qrColor) setQrColor(item.qrColor);
+    if (item.qrColor2) setQrColor2(item.qrColor2);
+    if (typeof item.isGradient === 'boolean') setIsGradient(item.isGradient);
+  };
+
+  const logoPixelSize = (qrDisplaySize * (logoSizePercent / 100));
 
   return (
     <>
       <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-      @keyframes shake {
-        0% { transform: translateX(0); }
-        18% { transform: translateX(-7px);}
-        36% { transform: translateX(6px);}
-        54% { transform: translateX(-6px);}
-        72% { transform: translateX(6px);}
-        90% { transform: translateX(-3px);}
-        100% { transform: translateX(0); }
-      }
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-      }
-      @keyframes buttonGlow {
-        0%, 100% { transform: translateY(0) scale(1); }
-        50% { transform: translateY(-3px) scale(1.05); }
-      }
-      @keyframes buttonPulse {
-        0%, 100% { box-shadow: 0 8px 25px rgba(0,0,0,0.2); }
-        50% { box-shadow: 0 12px 35px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.2); }
-      }
-      @keyframes qrPattern {
-        0%, 100% { opacity: 0.1; }
-        50% { opacity: 0.3; }
-      }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        @keyframes shake {
+          0% { transform: translateX(0); }
+          18% { transform: translateX(-7px); }
+          36% { transform: translateX(6px); }
+          54% { transform: translateX(-6px); }
+          72% { transform: translateX(6px); }
+          90% { transform: translateX(-3px); }
+          100% { transform: translateX(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .checkerboard-dark {
+          background-color: #0b1120;
+          background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%),
+                            linear-gradient(-45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%),
+                            linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%),
+                            linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%);
+          background-size: 14px 14px;
+          background-position: 0 0, 0 7px, 7px -7px, -7px 0px;
+        }
+        .checkerboard-light {
+          background-color: #ffffff;
+          background-image: linear-gradient(45deg, #f1f5f9 25%, transparent 25%),
+                            linear-gradient(-45deg, #f1f5f9 25%, transparent 25%),
+                            linear-gradient(45deg, transparent 75%, #f1f5f9 75%),
+                            linear-gradient(-45deg, transparent 75%, #f1f5f9 75%);
+          background-size: 14px 14px;
+          background-position: 0 0, 0 7px, 7px -7px, -7px 0px;
+        }
       `}</style>
-      <div style={{
-        minHeight: "100vh",
-        height: "100vh",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: "10px",
-        overflow: "hidden"
-      }}>
-        <div style={{
-          color: "white",
-          textAlign: "center",
-          marginBottom: "20px",
-          maxWidth: "600px"
-        }}>
-          <h1 style={{
-            fontSize: "2.5rem",
-            fontWeight: 700,
-            marginBottom: "8px",
-            textShadow: "0 2px 4px rgba(0,0,0,0.3)"
-          }}>QR Code Generator</h1>
-          <p style={{
-            fontSize: "1.1rem",
-            opacity: 0.9,
-            fontWeight: 400
-          }}>Create beautiful QR codes with custom logos and colors. Download with transparent background for professional use.</p>
+
+      {/* Embedded Live Gradient Definition for SVG Preview */}
+      <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }} aria-hidden="true">
+        <defs>
+          <linearGradient id="qr-live-preview-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={qrColor} />
+            <stop offset="100%" stopColor={isGradient ? qrColor2 : qrColor} />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      {/* Hidden high-res canvas used for 1:1 crisp PNG export (transparent background for clean source-in gradient) */}
+      {text && (
+        <div style={{ position: 'absolute', left: '-99999px', top: '-99999px', visibility: 'hidden' }} aria-hidden="true">
+          <QRCodeCanvas
+            ref={highResCanvasRef}
+            id="high-res-qr-canvas"
+            value={text}
+            size={HIGH_RES_SIZE}
+            level="H"
+            includeMargin={false}
+            bgColor="transparent"
+            fgColor="#000000"
+          />
+          <div ref={highResSvgRef} id="high-res-qr-svg">
+            <QRCodeSVG
+              value={text}
+              size={HIGH_RES_SIZE}
+              level="H"
+              includeMargin={false}
+              bgColor={isTransparent ? 'transparent' : '#FFFFFF'}
+              fgColor={qrColor}
+            />
+          </div>
         </div>
-        <div style={{
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(20px)",
-          borderRadius: 20,
-          boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
-          width: "95vw",
-          maxWidth: "1000px",
-          maxHeight: "70vh",
-          padding: "20px",
-          textAlign: 'center',
-          animation: "fadeIn 0.6s ease-out",
-          border: "1px solid rgba(255,255,255,0.2)",
+      )}
+
+      {/* History and Batch Modals */}
+      <HistoryDrawer
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        history={historyList}
+        onSelect={handleSelectHistoryItem}
+        isDark={isDark}
+        onClear={() => {
+          localStorage.removeItem('qr_generator_history_v1');
+          setHistoryList([]);
+        }}
+      />
+
+      <BatchModal
+        isOpen={batchOpen}
+        onClose={() => setBatchOpen(false)}
+        qrColor={qrColor}
+        qrColor2={qrColor2}
+        isGradient={isGradient}
+        bgColor={bgColor}
+        isTransparent={isTransparent}
+        logoDataUrl={logoDataUrl}
+        logoShape={logoShape}
+        logoSizePercent={logoSizePercent}
+        isDark={isDark}
+      />
+
+      <div
+        style={{
+          minHeight: "100vh",
+          background: isDark
+            ? "linear-gradient(135deg, #090d16 0%, #0f172a 45%, #1e1b4b 80%, #0b0f19 100%)"
+            : "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 45%, #f5f3ff 80%, #fdf2f8 100%)",
+          color: isDark ? "#ffffff" : "#0f172a",
+          fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
           display: "flex",
-          flexDirection: window.innerWidth > 768 ? "row" : "column",
-          gap: window.innerWidth > 768 ? "30px" : "15px",
+          flexDirection: "column",
           alignItems: "center",
-          overflow: "auto"
-        }}>
-          {/* Left side - QR Preview */}
-          <div style={{
-            flex: window.innerWidth > 768 ? "1" : "none",
+          padding: isMobile ? "16px 10px" : "32px 20px",
+          boxSizing: "border-box",
+          overflowY: "auto",
+          transition: "background 0.3s ease, color 0.3s ease"
+        }}
+      >
+        {/* Top Header with Animated Logo & Quick Actions */}
+        <header
+          style={{
+            textAlign: "center",
+            marginBottom: "20px",
+            maxWidth: "800px",
+            width: "100%",
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: window.innerWidth > 768 ? "350px" : "200px"
-          }}>
-            <div
-              ref={canvasRef}
+            alignItems: "center"
+          }}
+        >
+          {/* Awesome UI Animated Logo with Dark/Light Support */}
+          <AnimatedLogo isMobile={isMobile} isDark={isDark} />
+
+          <p
+            style={{
+              fontSize: isMobile ? "0.95rem" : "1.05rem",
+              color: isDark ? "rgba(255, 255, 255, 0.85)" : "#475569",
+              fontWeight: 400,
+              margin: "4px 0 16px 0",
+              lineHeight: 1.5,
+              maxWidth: "640px",
+              transition: "color 0.3s ease"
+            }}
+          >
+            Create branded QR codes with dynamic gradients, vector SVG export, and center logos.
+          </p>
+
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleTheme}
               style={{
-                opacity: text ? 1 : 0.3,
-                transition: "all 0.5s ease",
-                transform: text ? "scale(1)" : "scale(0.95)"
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 16px',
+                borderRadius: 20,
+                border: isDark ? '1px solid rgba(255,255,255,0.3)' : '1px solid #cbd5e1',
+                background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.9)',
+                color: isDark ? '#ffffff' : '#1e293b',
+                backdropFilter: 'blur(10px)',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                transition: 'all 0.2s ease',
+                boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.06)'
+              }}
+              aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+            >
+              {isDark ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 16px',
+                borderRadius: 20,
+                border: isDark ? '1px solid rgba(255,255,255,0.3)' : '1px solid #cbd5e1',
+                background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.9)',
+                color: isDark ? '#ffffff' : '#1e293b',
+                backdropFilter: 'blur(10px)',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                transition: 'all 0.2s ease',
+                boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.06)'
               }}
             >
-              {text && (
-                <div style={{
-                  position: 'relative',
-                  display: 'inline-block',
-                  background: "rgba(255,255,255,0.9)",
-                  border: `${BORDER_WIDTH}px solid ${qrColor}`,
-                  borderRadius: BORDER_RADIUS,
-                  boxShadow: `0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px ${qrColor}20`,
-                  padding: PADDING,
-                  width: QR_SIZE,
-                  height: QR_SIZE,
-                  animation: text ? "pulse 2s infinite" : "none"
-                }}>
-                  <QRCodeCanvas
-                    value={text}
-                    size={QR_SIZE}
-                    level="H"
-                    includeMargin={false}
-                    renderAs="canvas"
-                    bgColor="#fff"
-                    fgColor={qrColor}
-                    style={{ borderRadius: BORDER_RADIUS - 8, boxSizing: 'border-box', display: 'block' }}
+              🕒 Recent Codes {historyList.length > 0 && `(${historyList.length})`}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBatchOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 16px',
+                borderRadius: 20,
+                border: isDark ? '1px solid rgba(255,255,255,0.3)' : '1px solid #cbd5e1',
+                background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.9)',
+                color: isDark ? '#ffffff' : '#1e293b',
+                backdropFilter: 'blur(10px)',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                transition: 'all 0.2s ease',
+                boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.06)'
+              }}
+            >
+              📦 Batch Generator
+            </button>
+          </div>
+        </header>
+
+        {/* Main Application Container */}
+        <main
+          style={{
+            background: isDark ? "rgba(15, 23, 42, 0.88)" : "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(25px)",
+            borderRadius: 24,
+            boxShadow: isDark ? "0 25px 60px rgba(0,0,0,0.5)" : "0 25px 60px rgba(99, 102, 241, 0.12)",
+            width: "100%",
+            maxWidth: "1080px",
+            padding: isMobile ? "18px" : "32px",
+            animation: "fadeIn 0.5s ease-out",
+            border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid rgba(255, 255, 255, 0.8)",
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            gap: isMobile ? "24px" : "36px",
+            alignItems: "flex-start",
+            boxSizing: "border-box",
+            transition: "all 0.3s ease"
+          }}
+        >
+          {/* Left Column: QR Preview & Export Controls */}
+          <div
+            style={{
+              flex: isMobile ? "none" : "1",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              width: "100%",
+              position: isMobile ? "static" : "sticky",
+              top: 24
+            }}
+          >
+            {/* Live QR Preview Showcase Stage */}
+            <div
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                marginBottom: 20
+              }}
+            >
+              {/* Preview Status & Indicator */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  maxWidth: qrDisplaySize + 40,
+                  marginBottom: 10,
+                  padding: '0 4px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      boxShadow: '0 0 8px #10b981',
+                      display: 'inline-block'
+                    }}
                   />
-                  {logoDataUrl &&
-                    <img
-                      src={logoDataUrl}
-                      alt="central logo"
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isDark ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                    Live Scanner Preview
+                  </span>
+                </div>
+                {isTransparent && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: isDark ? '#38bdf8' : '#0284c7',
+                      background: isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe',
+                      border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #bae6fd',
+                      padding: '2px 8px',
+                      borderRadius: 10
+                    }}
+                  >
+                    ✦ Transparent Active
+                  </span>
+                )}
+              </div>
+
+              {/* The QR Preview Card */}
+              <div
+                className={isTransparent ? (isDark ? "checkerboard-dark" : "checkerboard-light") : ""}
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: isTransparent ? undefined : bgColor,
+                  borderRadius: 24,
+                  padding: 20,
+                  boxSizing: 'border-box',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid rgba(0, 0, 0, 0.08)',
+                  boxShadow: isDark
+                    ? '0 25px 50px rgba(0, 0, 0, 0.55), 0 0 35px rgba(99, 102, 241, 0.18)'
+                    : '0 20px 45px rgba(79, 70, 229, 0.14), 0 4px 12px rgba(0, 0, 0, 0.05)',
+                  transition: "all 0.3s ease",
+                  transform: text ? "scale(1)" : "scale(0.97)",
+                  opacity: text ? 1 : 0.6
+                }}
+              >
+                {text ? (
+                  <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0 }}>
+                    {/* Live Vector SVG Preview with Native Gradient Support */}
+                    <QRCodeSVG
+                      value={text}
+                      size={qrDisplaySize}
+                      level="H"
+                      includeMargin={false}
+                      bgColor={isTransparent ? 'transparent' : bgColor}
+                      fgColor={isGradient && qrColor !== qrColor2 ? "url(#qr-live-preview-gradient)" : qrColor}
                       style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        width: LOGO_SIZE,
-                        height: LOGO_SIZE,
-                        transform: 'translate(-50%, -50%)',
-                        borderRadius: '50%',
-                        background: '#fff',
-                        border: '4px solid #fff',
-                        boxShadow: '0 2px 9px #b9ceeb44',
-                        pointerEvents: 'none'
+                        display: 'block',
+                        borderRadius: 8
                       }}
                     />
-                  }
-                </div>
+
+                    {/* Logo Center Overlay */}
+                    {logoDataUrl && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          width: logoPixelSize,
+                          height: logoPixelSize,
+                          transform: 'translate(-50%, -50%)',
+                          borderRadius: logoShape === 'circle' ? '50%' : '14px',
+                          background: '#ffffff',
+                          border: '3px solid #ffffff',
+                          boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+                          overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        <img
+                          src={logoDataUrl}
+                          alt="logo"
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain'
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      width: qrDisplaySize,
+                      height: qrDisplaySize,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: isDark ? "#64748b" : "#94a3b8",
+                      fontSize: 14,
+                      fontWeight: 600
+                    }}
+                  >
+                    Enter text to preview
+                  </div>
+                )}
+              </div>
+
+              {isTransparent && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: isDark ? '#94a3b8' : '#64748b',
+                    marginTop: 8,
+                    textAlign: 'center'
+                  }}
+                >
+                  ℹ️ Background is transparent in exported PNG & SVG files
+                </span>
               )}
-              
-              {!text && (
-                <div style={{
-                  width: QR_SIZE + PADDING * 2,
-                  height: QR_SIZE + PADDING * 2,
-                  border: "2px dashed #cbd5e1",
-                  borderRadius: BORDER_RADIUS,
+            </div>
+
+            {/* Export Toolbar */}
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Primary PNG Download Button */}
+              <button
+                type="button"
+                onClick={handleDownloadPng}
+                disabled={!text.trim()}
+                style={{
+                  padding: "15px 24px",
+                  borderRadius: 16,
+                  border: "none",
+                  background: text.trim()
+                    ? "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)"
+                    : isDark
+                    ? "rgba(255, 255, 255, 0.08)"
+                    : "#e2e8f0",
+                  color: text.trim() ? "#ffffff" : isDark ? "#64748b" : "#94a3b8",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  cursor: text.trim() ? "pointer" : "not-allowed",
+                  boxShadow: text.trim()
+                    ? "0 8px 25px rgba(99, 102, 241, 0.45)"
+                    : "none",
+                  transition: "all 0.25s ease",
+                  transform: buttonHover && text.trim() ? "translateY(-1px)" : "none",
+                  animation: shake ? "shake 0.41s" : "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#94a3b8",
-                  fontSize: 16,
-                  fontWeight: 500
-                }}>
-                  QR Preview
-                </div>
-              )}
+                  gap: 8
+                }}
+                onMouseEnter={() => setButtonHover(true)}
+                onMouseLeave={() => setButtonHover(false)}
+              >
+                ✨ Download High-Res PNG (1024px)
+              </button>
+
+              {/* Secondary Actions: SVG and Copy */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={handleDownloadSvg}
+                  disabled={!text.trim()}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 14,
+                    border: isDark ? "1.5px solid rgba(255, 255, 255, 0.15)" : "1.5px solid #cbd5e1",
+                    background: isDark ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
+                    color: text.trim() ? (isDark ? "#f8fafc" : "#1e293b") : "#64748b",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: text.trim() ? "pointer" : "not-allowed",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseEnter={(e) => text.trim() && (e.currentTarget.style.background = isDark ? "rgba(255, 255, 255, 0.14)" : "#f8fafc")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = isDark ? "rgba(255, 255, 255, 0.08)" : "#ffffff")}
+                >
+                  📐 Vector SVG
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyToClipboard}
+                  disabled={!text.trim()}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 14,
+                    border: copied ? "1.5px solid #10b981" : (isDark ? "1.5px solid rgba(255, 255, 255, 0.15)" : "1.5px solid #cbd5e1"),
+                    background: copied ? (isDark ? "rgba(16, 185, 129, 0.15)" : "#ecfdf5") : (isDark ? "rgba(255, 255, 255, 0.08)" : "#ffffff"),
+                    color: copied ? "#10b981" : text.trim() ? (isDark ? "#f8fafc" : "#1e293b") : "#64748b",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: text.trim() ? "pointer" : "not-allowed",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  {copied ? '✓ Copied!' : '📋 Copy Image'}
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Right side - Controls */}
-          <div style={{
-            flex: window.innerWidth > 768 ? "1" : "none",
-            display: "flex",
-            flexDirection: "column",
-            width: "100%"
-          }}>
-          
-          <input
-            type="text"
-            value={text}
-            placeholder="Enter text or URL to generate QR code"
-            onChange={e => setText(e.target.value)}
+          {/* Right Column: Template Selectors & Styling Controls */}
+          <div
             style={{
-              width: "100%",
-              padding: "16px 20px",
-              marginBottom: window.innerWidth > 768 ? 28 : 15,
-              fontSize: 16,
-              border: focused ? `2px solid ${qrColor}` : "2px solid #e2e8f0",
-              borderRadius: 16,
-              outline: "none",
-              boxSizing: "border-box",
-              boxShadow: focused ? `0 0 0 4px ${qrColor}15` : "0 2px 4px rgba(0,0,0,0.04)",
-              background: "rgba(255,255,255,0.8)",
-              transition: "all 0.3s ease",
-              fontWeight: 400
+              flex: isMobile ? "none" : "1.25",
+              display: "flex",
+              flexDirection: "column",
+              width: "100%"
             }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            autoComplete="off"
-          />
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: window.innerWidth > 768 ? 20 : 15,
-            marginBottom: window.innerWidth > 768 ? 28 : 15
-          }}>
-          {/* QR color picker option */}
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 8,
-            padding: "16px",
-            background: "rgba(255,255,255,0.6)",
-            borderRadius: 16,
-            border: "1px solid rgba(255,255,255,0.3)"
-          }}>
-            <span style={{
-              fontSize: 14,
-              color: "#475569",
-              fontWeight: 600,
-              marginBottom: 4
-            }}>QR Color</span>
-            <input
-              type="color"
-              value={qrColor}
-              onChange={e => setQrColor(e.target.value)}
-              style={{
-                width: 48,
-                height: 48,
-                border: "3px solid #fff",
-                borderRadius: "50%",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                cursor: "pointer",
-                background: "none",
-                transition: "transform 0.2s ease"
-              }}
-              onMouseEnter={e => e.target.style.transform = "scale(1.1)"}
-              onMouseLeave={e => e.target.style.transform = "scale(1)"}
-            />
-            <span style={{
-              fontSize: 12,
-              color: "#64748b",
-              fontWeight: 500,
-              letterSpacing: 0.5
-            }}>
-              {qrColor.toUpperCase()}
-            </span>
-          </div>
-          {/* Logo upload option */}
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 8,
-            padding: "16px",
-            background: "rgba(255,255,255,0.6)",
-            borderRadius: 16,
-            border: "1px solid rgba(255,255,255,0.3)"
-          }}>
-            <span style={{
-              fontSize: 14,
-              color: "#475569",
-              fontWeight: 600,
-              marginBottom: 4
-            }}>Logo</span>
-            <label style={{
-              display: "inline-block",
-              padding: "8px 16px",
-              background: "linear-gradient(135deg, #667eea, #764ba2)",
-              color: "white",
-              borderRadius: 12,
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 500,
-              transition: "transform 0.2s ease",
-              boxShadow: "0 2px 8px rgba(102, 126, 234, 0.3)"
-            }}
-            onMouseEnter={e => e.target.style.transform = "translateY(-2px)"}
-            onMouseLeave={e => e.target.style.transform = "translateY(0)"}
-            >
-              Choose File
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                style={{ display: "none" }}
-              />
-            </label>
-            <span style={{
-              fontSize: 11,
-              color: "#64748b",
-              textAlign: "center"
-            }}>PNG, JPG, SVG</span>
-          </div>
-          </div>
-
-          <button
-            onClick={tryDownload}
-            disabled={!text}
-            style={{
-              marginTop: 8,
-              padding: "16px 32px",
-              width: "100%",
-              borderRadius: 16,
-              border: "none",
-              background: text ? "#1e293b" : "#e2e8f0",
-              color: text ? "#fff" : "#94a3b8",
-              fontWeight: 600,
-              fontSize: 16,
-              boxShadow: text ? `0 8px 25px ${qrColor}40` : "none",
-              cursor: text ? "pointer" : "not-allowed",
-              transition: "all 0.3s ease",
-              transform: buttonHover && text ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1.0)",
-              animation: shake ? "shake 0.41s" : text && buttonHover ? "buttonGlow 0.6s ease-in-out infinite, buttonPulse 2s ease-in-out infinite" : "none",
-              letterSpacing: "0.5px",
-              position: "relative",
-              overflow: "hidden"
-            }}
-            onMouseEnter={() => setButtonHover(true)}
-            onMouseLeave={() => setButtonHover(false)}
           >
-            {text && (
-              <div style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundImage: `
-                  linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%),
-                  radial-gradient(circle at 25% 25%, rgba(255,255,255,0.2) 2px, transparent 2px),
-                  radial-gradient(circle at 75% 25%, rgba(255,255,255,0.2) 2px, transparent 2px),
-                  radial-gradient(circle at 25% 75%, rgba(255,255,255,0.2) 2px, transparent 2px),
-                  radial-gradient(circle at 75% 75%, rgba(255,255,255,0.2) 2px, transparent 2px)
-                `,
-                backgroundSize: "200% 100%, 15px 15px, 15px 15px, 15px 15px, 15px 15px",
-                animation: buttonHover ? "qrPattern 2s ease-in-out infinite" : "none",
-                pointerEvents: "none"
-              }} />
-            )}
-            <span style={{ position: "relative", zIndex: 1 }}>
-              {text ? "✨ Download QR Code" : "Enter text to generate"}
-            </span>
-          </button>
-            <p style={{ 
-              color: "#64748b", 
-              display: "block", 
-              marginTop: 20, 
-              fontSize: 14,
-              fontWeight: 400,
-              lineHeight: 1.5,
-              textAlign: "center"
-            }}>
-              {text
-                ? "🎯 Your QR code is ready! Click download to save with transparent background."
-                : "💡 Enter any text or URL above to create your custom QR code with logo."}
-            </p>
+            {/* Template Selector & Fields */}
+            <TemplateTabs
+              onTextChange={handleTemplateChange}
+              qrColor={qrColor}
+              isDark={isDark}
+            />
+
+            {/* Custom Design Controls & Presets */}
+            <DesignControls
+              qrColor={qrColor}
+              setQrColor={setQrColor}
+              qrColor2={qrColor2}
+              setQrColor2={setQrColor2}
+              isGradient={isGradient}
+              setIsGradient={setIsGradient}
+              bgColor={bgColor}
+              setBgColor={setBgColor}
+              isTransparent={isTransparent}
+              setIsTransparent={setIsTransparent}
+              logoDataUrl={logoDataUrl}
+              setLogoDataUrl={setLogoDataUrl}
+              handleImageUpload={handleImageUpload}
+              handleRemoveLogo={handleRemoveLogo}
+              fileInputRef={fileInputRef}
+              logoShape={logoShape}
+              setLogoShape={setLogoShape}
+              logoSizePercent={logoSizePercent}
+              setLogoSizePercent={setLogoSizePercent}
+              isDark={isDark}
+            />
           </div>
-        </div>
+        </main>
       </div>
     </>
   );
